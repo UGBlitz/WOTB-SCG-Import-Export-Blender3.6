@@ -40,4 +40,25 @@ def readSCG(stream):
 '''
 SCG writer
 '''
-def writeScg(stream): pass
+def writeSCG(stream, polygonGroups):
+    """
+    Write a list of PolygonGroup KA archives to an SCG stream.
+    polygonGroups: list of dicts, each matching the KA archive structure
+                   (keys: ##name, #id, vertexFormat, vertexCount, indexCount,
+                    indexFormat, primitiveCount, rhi_primitiveType,
+                    textureCoordCount, cubeTextureCoordCount, packing,
+                    vertices (bytes), indices (bytes))
+    """
+    from io import BytesIO
+    from .KA import writeKA1
+
+    nodeCount = len(polygonGroups)
+
+    # Write SCG header
+    stream.writeBytes(b"SCPG")
+    stream.writeInt32(1)             # version
+    stream.writeInt32(nodeCount, signed=False)
+    stream.writeInt32(nodeCount, signed=False)  # duplicate
+
+    for archive in polygonGroups:
+        writeKA1(stream, archive)

@@ -49,20 +49,20 @@ class StreamBuffer:
         value = int.from_bytes(value, byteorder=self.endian, signed=signed)
         return value
 
-    def writeInt8(self, value):
-        binData = value.to_bytes(1)
+    def writeInt8(self, value, signed=False):
+        binData = value.to_bytes(1, byteorder=self.endian, signed=signed)
         self.stream.write(binData)
 
-    def writeInt16(self, value):
-        binData = value.to_bytes(2, self.endian)
+    def writeInt16(self, value, signed=False):
+        binData = value.to_bytes(2, byteorder=self.endian, signed=signed)
         self.stream.write(binData)
 
-    def writeInt32(self, value):
-        binData = value.to_bytes(4, self.endian)
+    def writeInt32(self, value, signed=True):
+        binData = value.to_bytes(4, byteorder=self.endian, signed=signed)
         self.stream.write(binData)
 
-    def writeInt64(self, value):
-        binData = value.to_bytes(8, self.endian)
+    def writeInt64(self, value, signed=True):
+        binData = value.to_bytes(8, byteorder=self.endian, signed=signed)
         self.stream.write(binData)
 
     '''

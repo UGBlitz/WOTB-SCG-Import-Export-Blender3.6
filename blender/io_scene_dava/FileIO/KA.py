@@ -183,16 +183,16 @@ class V2DataReader:
                 return stringTable[ stream.readInt32(False) ]
             case Types.KEYED_ARCHIVE:
                 length = stream.readInt32(False)
-                buffer = BytesIO(stream.readBytes(length))
-                buffer = FileBuffer(buffer)
-                return readKA258(buffer)
+                from io import BytesIO as _BytesIO
+                from .StreamBuffer import StreamBuffer as _SB
+                buf = _SB(_BytesIO(stream.readBytes(length)))
+                return readKA258(buf, stringTable)
             case Types.ARRAY:
                 length = stream.readInt32(False)
                 array = []
                 for _ in range(length):
-                    array.append(
-                            self.readValue(stream, valueType, stringTable)
-                    )
+                    elem_type = stream.readInt8(False)
+                    array.append(self.readValue(stream, elem_type, stringTable))
                 return array
             case other:
                 return V1DataReader.readValue(stream, valueType)
@@ -231,14 +231,14 @@ def readKA2(stream):
         return {}
 
     strings = []
-    for _ in range(nodeCount):
+    for _ in range(stringCount):
         length = stream.readInt16(False)
         strings.append(
             stream.readString(length)
         )
 
     stringTable = {}
-    for stringI in range(nodeCount):
+    for stringI in range(stringCount):
         key = stream.readInt32(False)
         stringTable[key] = strings[stringI]
 
@@ -269,10 +269,41 @@ def readKA258(stream, stringTable):
 '''
 KA Writers
 '''
-def writeKAHeader(stream): pass
+def writeKAHeader(stream, version, nodeCount):
+    stream.writeBytes(b"KA")
+    stream.writeInt16(version)
+    stream.writeInt32(nodeCount, signed=False)
 
-def writeKA1(stream): pass
+def writeKA1Value(stream, value):
+    if isinstance(value, bool):
+        stream.writeInt8(Types.BOOLEAN)
+        stream.writeInt8(1 if value else 0)
+    elif isinstance(value, str):
+        stream.writeInt8(Types.STRING)
+        encoded = value.encode("utf-8")
+        stream.writeInt32(len(encoded), signed=False)
+        stream.writeBytes(encoded)
+    elif isinstance(value, bytes) or isinstance(value, bytearray):
+        stream.writeInt8(Types.BYTE_ARRAY)
+        stream.writeInt32(len(value), signed=False)
+        stream.writeBytes(value)
+    elif isinstance(value, int):
+        # Always write as INT32 — original DAVA files use INT32 for all integer fields
+        stream.writeInt8(Types.INT32)
+        stream.writeInt32(value, signed=True)
+    elif isinstance(value, float):
+        stream.writeInt8(Types.FLOAT)
+        stream.writeFloat(value)
+    else:
+        raise KAWriteError(f"Unsupported value type: {type(value)}")
 
-def writeKA2(stream): pass
-
-def writeKA258(stream): pass
+def writeKA1(stream, archive):
+    writeKAHeader(stream, 1, len(archive))
+    for key, value in archive.items():
+        # Write key as string type
+        encoded_key = key.encode("utf-8")
+        stream.writeInt8(Types.STRING)
+        stream.writeInt32(len(encoded_key), signed=False)
+        stream.writeBytes(encoded_key)
+        # Write value
+        writeKA1Value(stream, value)
